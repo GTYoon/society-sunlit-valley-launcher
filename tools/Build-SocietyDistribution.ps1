@@ -159,13 +159,14 @@ foreach ($mod in Get-ChildItem -LiteralPath (Join-Path $ClientPackRoot 'mods') -
     }
 
     $token = Get-PathToken -Value "mods/$($mod.Name)"
-    $coordinate = "society.sunlit:mod-$token`:4.1.3"
-    $artifactPath = "society/sunlit/mod-$token/4.1.3/mod-$token-4.1.3.jar"
+    # Place every official CurseForge JAR in the instance mods directory.
+    # This is Forge's native discovery path and preserves multi-JAR loader
+    # layouts such as Crash Assistant exactly as CurseForge launches them.
     $null = $modules.Add([ordered]@{
-        id = "$coordinate@jar"
+        id = "society.file:mod-$token`:4.1.3"
         name = $mod.Name
-        type = 'ForgeMod'
-        artifact = New-Artifact -Path $mod.FullName -Url $url -ArtifactPath $artifactPath
+        type = 'File'
+        artifact = New-Artifact -Path $mod.FullName -Url $url -ArtifactPath "mods/$($mod.Name)"
     })
 }
 

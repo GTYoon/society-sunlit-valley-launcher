@@ -24,8 +24,13 @@ $modules = @($server.modules)
 if (@($modules | Where-Object type -eq 'ForgeHosted').Count -ne 1) {
     $failures.Add('Exactly one ForgeHosted module is required.')
 }
-if (@($modules | Where-Object type -eq 'ForgeMod').Count -ne 351) {
-    $failures.Add("Expected 351 Forge client mods; found $(@($modules | Where-Object type -eq 'ForgeMod').Count).")
+if (@($modules | Where-Object { $_.type -eq 'File' -and $_.artifact.path -like 'mods/*.jar' }).Count -ne 351) {
+    $failures.Add("Expected 351 CurseForge client mods in the instance mods directory; found $(@($modules | Where-Object { $_.type -eq 'File' -and $_.artifact.path -like 'mods/*.jar' }).Count).")
+}
+
+$crashAssistant = @($modules | Where-Object { $_.name -eq 'CrashAssistant-forge-1.19-1.20.1-1.11.10.jar' -and $_.artifact.path -eq 'mods/CrashAssistant-forge-1.19-1.20.1-1.11.10.jar' })
+if ($crashAssistant.Count -ne 1) {
+    $failures.Add('Crash Assistant must remain the unmodified official CurseForge JAR in the instance mods directory.')
 }
 
 $duplicateIds = @($modules.id | Group-Object | Where-Object Count -gt 1)
@@ -82,7 +87,7 @@ if ($failures.Count -gt 0) {
     distribution = $DistributionPath
     serverAddress = $server.address
     modules = $modules.Count
-    forgeMods = @($modules | Where-Object type -eq 'ForgeMod').Count
+    instanceMods = @($modules | Where-Object { $_.type -eq 'File' -and $_.artifact.path -like 'mods/*.jar' }).Count
     managedFiles = @($modules | Where-Object type -eq 'File').Count
     status = 'passed'
 }
