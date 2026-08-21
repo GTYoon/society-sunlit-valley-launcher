@@ -1,0 +1,20 @@
+# Custom launcher labels for Society: Sunlit Valley 4.1.3.
+
+[ejs.app]
+title = "Society: Sunlit Valley 4.1.3"
+
+[ejs.landing]
+mediaGitHubURL = "https://github.com/GTYoon/society-sunlit-valley-launcher"
+mediaXURL = "#"
+mediaInstagramURL = "#"
+mediaYouTubeURL = "#"
+mediaDiscordURL = "#"
+
+[ejs.settings]
+sourceGithubLink = "https://github.com/GTYoon/society-sunlit-valley-launcher"
+supportLink = "https://github.com/GTYoon/society-sunlit-valley-launcher/issues"
+
+[ejs.welcome]
+welcomeHeader = "Welcome to Society: Sunlit Valley 4.1.3"
+welcomeDescription = "This launcher verifies and downloads the exact server client pack before starting Minecraft."
+welcomeDescCTA = "Continue"
