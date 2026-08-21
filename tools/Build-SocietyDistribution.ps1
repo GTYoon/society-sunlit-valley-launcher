@@ -2,12 +2,13 @@
 param(
     [string]$ClientPackRoot = 'C:\Users\mandeuk\curseforge\minecraft\Instances\Society Sunlit Valley',
     [string]$ForgeLibrariesRoot = 'C:\Users\mandeuk\curseforge\minecraft\Install\libraries',
-    [string]$OutputRoot = 'D:\society-sunlit-valley-client-release-v3',
+    [string]$OutputRoot = 'D:\society-sunlit-valley-client-release-v4',
     [string]$ServerAddress = '116.126.112.66:25565',
     [string]$FilesBaseUrl = '__CLIENT_FILES_BASE_URL__',
     [string]$ServerIconUrl = '__SERVER_ICON_URL__',
     [string]$ServerIconSource = 'D:\society-sunlit-valley-server\server-icon.png',
-    [string]$NewsRssUrl = '__NEWS_RSS_URL__'
+    [string]$NewsRssUrl = 'https://github.com/GTYoon/society-sunlit-valley-launcher/releases.atom',
+    [switch]$SkipManagedFileCopy
 )
 
 $ErrorActionPreference = 'Stop'
@@ -71,7 +72,7 @@ foreach ($required in @($ClientPackRoot, $ForgeLibrariesRoot)) {
 }
 if (Test-Path -LiteralPath $OutputRoot) {
     $existing = @(Get-ChildItem -LiteralPath $OutputRoot -Force)
-    if ($existing.Count -gt 0) {
+    if ($existing.Count -gt 0 -and -not $SkipManagedFileCopy) {
         throw "Output directory is not empty; refusing to overwrite a release: $OutputRoot"
     }
 }
@@ -131,7 +132,7 @@ foreach ($folder in $managedFolders) {
             }
             $copyToRelease = $false
         }
-        if ($copyToRelease) {
+        if ($copyToRelease -and -not $SkipManagedFileCopy) {
             $destination = Join-Path $OutputRoot ('files\' + $relativePath.Replace('/', '\'))
             New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
             [IO.File]::Copy($sourceFile.FullName, $destination, $false)
@@ -168,11 +169,15 @@ foreach ($mod in Get-ChildItem -LiteralPath (Join-Path $ClientPackRoot 'mods') -
     })
 }
 
-$forgeArtifactPath = 'net/minecraftforge/forge/1.20.1-47.4.0/forge-1.20.1-47.4.0-universal.jar'
-$forgeArtifactUrl = 'https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.0/forge-1.20.1-47.4.0-universal.jar'
+# Forge 1.20.1 does not bootstrap from the universal jar.  Its generated client
+# install uses lowcodelanguage as the hosted module and expects the installation
+# outputs listed below to be present in the library directory.
+$forgeHostedLibraryName = 'net.minecraftforge:lowcodelanguage:1.20.1-47.4.0'
+$forgeArtifactPath = 'net/minecraftforge/lowcodelanguage/1.20.1-47.4.0/lowcodelanguage-1.20.1-47.4.0.jar'
+$forgeArtifactUrl = 'https://maven.minecraftforge.net/net/minecraftforge/lowcodelanguage/1.20.1-47.4.0/lowcodelanguage-1.20.1-47.4.0.jar'
 $forgeArtifactFile = Join-Path $ForgeLibrariesRoot ($forgeArtifactPath.Replace('/', '\'))
 if (-not (Test-Path -LiteralPath $forgeArtifactFile -PathType Leaf)) {
-    throw "Forge universal jar is not installed locally: $forgeArtifactFile"
+    throw "Forge bootstrap library is not installed locally: $forgeArtifactFile"
 }
 
 $forgeProfile.id = '1.20.1-forge-47.4.0'
@@ -189,7 +194,7 @@ $null = $forgeSubModules.Add([ordered]@{
     artifact = New-Artifact -Path $forgeProfileOutputPath -Url (Join-Url -BaseUrl $FilesBaseUrl -RelativePath $forgeProfileRelativePath) -ArtifactPath $forgeProfileRelativePath
 })
 
-foreach ($library in @($forgeProfile.libraries | Sort-Object name)) {
+foreach ($library in @($forgeProfile.libraries | Where-Object { $_.name -ne $forgeHostedLibraryName } | Sort-Object name)) {
     $artifactPath = [string]$library.downloads.artifact.path
     $artifactUrl = [string]$library.downloads.artifact.url
     $artifactFile = Join-Path $ForgeLibrariesRoot $artifactPath.Replace('/', '\')
@@ -207,8 +212,96 @@ foreach ($library in @($forgeProfile.libraries | Sort-Object name)) {
     })
 }
 
+$forgeInstallOutputs = @(
+    [ordered]@{
+        id = 'net.minecraftforge:fmlcore:1.20.1-47.4.0'
+        name = 'Forge fmlcore 1.20.1-47.4.0'
+        path = 'net/minecraftforge/fmlcore/1.20.1-47.4.0/fmlcore-1.20.1-47.4.0.jar'
+        url = 'https://maven.minecraftforge.net/net/minecraftforge/fmlcore/1.20.1-47.4.0/fmlcore-1.20.1-47.4.0.jar'
+        classpath = $true
+        host = $false
+    },
+    [ordered]@{
+        id = 'net.minecraftforge:javafmllanguage:1.20.1-47.4.0'
+        name = 'Forge javafmllanguage 1.20.1-47.4.0'
+        path = 'net/minecraftforge/javafmllanguage/1.20.1-47.4.0/javafmllanguage-1.20.1-47.4.0.jar'
+        url = 'https://maven.minecraftforge.net/net/minecraftforge/javafmllanguage/1.20.1-47.4.0/javafmllanguage-1.20.1-47.4.0.jar'
+        classpath = $true
+        host = $false
+    },
+    [ordered]@{
+        id = 'net.minecraftforge:mclanguage:1.20.1-47.4.0'
+        name = 'Forge mclanguage 1.20.1-47.4.0'
+        path = 'net/minecraftforge/mclanguage/1.20.1-47.4.0/mclanguage-1.20.1-47.4.0.jar'
+        url = 'https://maven.minecraftforge.net/net/minecraftforge/mclanguage/1.20.1-47.4.0/mclanguage-1.20.1-47.4.0.jar'
+        classpath = $true
+        host = $false
+    },
+    [ordered]@{
+        id = 'net.minecraftforge:forge:1.20.1-47.4.0:universal'
+        name = 'Forge universal 1.20.1-47.4.0'
+        path = 'net/minecraftforge/forge/1.20.1-47.4.0/forge-1.20.1-47.4.0-universal.jar'
+        url = 'https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.0/forge-1.20.1-47.4.0-universal.jar'
+        classpath = $false
+        host = $false
+    },
+    [ordered]@{
+        id = 'net.minecraftforge:forge:1.20.1-47.4.0:client'
+        name = 'Forge generated client 1.20.1-47.4.0'
+        path = 'net/minecraftforge/forge/1.20.1-47.4.0/forge-1.20.1-47.4.0-client.jar'
+        classpath = $false
+        host = $true
+    },
+    [ordered]@{
+        id = 'net.minecraft:client:1.20.1-20230612.114412:srg'
+        name = 'Forge generated client SRG 1.20.1'
+        path = 'net/minecraft/client/1.20.1-20230612.114412/client-1.20.1-20230612.114412-srg.jar'
+        classpath = $false
+        host = $true
+    },
+    [ordered]@{
+        id = 'net.minecraft:client:1.20.1-20230612.114412:slim'
+        name = 'Forge generated client slim 1.20.1'
+        path = 'net/minecraft/client/1.20.1-20230612.114412/client-1.20.1-20230612.114412-slim.jar'
+        classpath = $false
+        host = $true
+    },
+    [ordered]@{
+        id = 'net.minecraft:client:1.20.1-20230612.114412:extra'
+        name = 'Forge generated client extra 1.20.1'
+        path = 'net/minecraft/client/1.20.1-20230612.114412/client-1.20.1-20230612.114412-extra.jar'
+        classpath = $false
+        host = $true
+    }
+)
+
+foreach ($output in $forgeInstallOutputs) {
+    $artifactPath = [string]$output.path
+    $artifactFile = Join-Path $ForgeLibrariesRoot $artifactPath.Replace('/', '\')
+    if (-not (Test-Path -LiteralPath $artifactFile -PathType Leaf)) {
+        throw "Required Forge installation output is not installed locally: $artifactPath"
+    }
+
+    $artifactUrl = [string]$output.url
+    if ([bool]$output.host) {
+        $hostedRelativePath = "forge-install/$artifactPath"
+        $hostedFile = Join-Path $OutputRoot $hostedRelativePath.Replace('/', '\')
+        New-Item -ItemType Directory -Path (Split-Path -Parent $hostedFile) -Force | Out-Null
+        [IO.File]::Copy($artifactFile, $hostedFile, $false)
+        $artifactUrl = Join-Url -BaseUrl $FilesBaseUrl -RelativePath $hostedRelativePath
+    }
+
+    $null = $forgeSubModules.Add([ordered]@{
+        id = [string]$output.id
+        name = [string]$output.name
+        type = 'Library'
+        classpath = [bool]$output.classpath
+        artifact = New-Artifact -Path $artifactFile -Url $artifactUrl -ArtifactPath $artifactPath
+    })
+}
+
 $null = $modules.Insert(0, [ordered]@{
-    id = 'net.minecraftforge:forge:1.20.1-47.4.0'
+    id = $forgeHostedLibraryName
     name = 'Minecraft Forge 1.20.1-47.4.0'
     type = 'ForgeHosted'
     artifact = New-Artifact -Path $forgeArtifactFile -Url $forgeArtifactUrl -ArtifactPath $forgeArtifactPath
@@ -231,6 +324,10 @@ $distribution = [ordered]@{
                 supported = '>=17 <18'
                 suggestedMajor = 17
                 distribution = 'TEMURIN'
+                ram = [ordered]@{
+                    recommended = 12288
+                    minimum = 4096
+                }
             }
             mainServer = $true
             autoconnect = $true
